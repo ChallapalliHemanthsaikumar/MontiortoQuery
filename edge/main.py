@@ -62,7 +62,7 @@ def run_pipeline(args):
 
         trajectory = TrajectoryRecorder(fps=fps)
         analyzer = BehaviorAnalyzer(fps=fps)
-        food_zone = FoodZone(x=220, y=140, w=200, h=200)
+        food_zone = FoodZone(x=360, y=300, w=120, h=120)
 
         emitter.emit_experiment_start()
         writer = None
