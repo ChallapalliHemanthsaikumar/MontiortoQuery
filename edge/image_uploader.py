@@ -40,6 +40,29 @@ def _get_iot_credentials(endpoint, role_alias, cert_path, key_path, ca_path):
             return json.loads(resp.read())["credentials"]
 
 
+def _make_refreshable_session(endpoint, role_alias, cert_path, key_path, ca_path):
+    """Create a botocore session with auto-refreshing IoT credentials."""
+
+    def _refresh():
+        creds = _get_iot_credentials(endpoint, role_alias, cert_path, key_path, ca_path)
+        return {
+            "access_key": creds["accessKeyId"],
+            "secret_key": creds["secretAccessKey"],
+            "token": creds["sessionToken"],
+            "expiry_time": creds["expiration"],
+        }
+
+    refreshable = RefreshableCredentials.create_from_metadata(
+        metadata=_refresh(),
+        refresh_using=_refresh,
+        method="sts-assume-role",
+    )
+
+    session = get_session()
+    session._credentials = refreshable
+    return boto3.Session(botocore_session=session)
+
+
 class S3ImageUploader:
     """Upload annotated frames to S3 using IoT credentials (no stored keys)."""
 
@@ -52,19 +75,14 @@ class S3ImageUploader:
         self.experiment_id = experiment_id
 
         if credentials_endpoint and role_alias:
-            creds = _get_iot_credentials(
+            session = _make_refreshable_session(
                 endpoint=credentials_endpoint,
                 role_alias=role_alias,
                 cert_path=os.path.join(cert_dir, "device-certificate.pem.crt"),
                 key_path=os.path.join(cert_dir, "private.pem.key"),
                 ca_path=os.path.join(cert_dir, "AmazonRootCA1.pem"),
             )
-            self.s3 = boto3.client(
-                "s3",
-                aws_access_key_id=creds["accessKeyId"],
-                aws_secret_access_key=creds["secretAccessKey"],
-                aws_session_token=creds["sessionToken"],
-            )
+            self.s3 = session.client("s3")
         else:
             self.s3 = boto3.client("s3")
 
