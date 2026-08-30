@@ -117,7 +117,7 @@ def run_pipeline(args):
 
             if args.output and writer is None:
                 h, w = annotated.shape[:2]
-                fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                fourcc = cv2.VideoWriter_fourcc(*"MJPG")
                 writer = cv2.VideoWriter(args.output, fourcc, fps, (w, h))
 
             if writer:
@@ -162,7 +162,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="AntVision Edge Pipeline")
     parser.add_argument("--input", "-i", default="data/test/test_ants.mp4",
                         help="Path to input video file")
-    parser.add_argument("--output", "-o", default="data/test/output_tracked.mp4",
+    parser.add_argument("--output", "-o", default="data/test/output_tracked.avi",
                         help="Path to output annotated video")
     parser.add_argument("--live", action="store_true",
                         help="Use Raspberry Pi camera instead of video file")

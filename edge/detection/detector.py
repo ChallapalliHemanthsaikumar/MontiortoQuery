@@ -18,7 +18,7 @@ class Detection:
 class AntDetector:
     """Detect ant-sized blobs from a binary mask."""
 
-    def __init__(self, min_area=30, max_area=2000):
+    def __init__(self, min_area=80, max_area=1500):
         self.min_area = min_area
         self.max_area = max_area
 
