@@ -53,7 +53,13 @@ def get_publisher(args):
 def get_uploader(args):
     if args.s3_bucket:
         from edge.image_uploader import S3ImageUploader
-        return S3ImageUploader(bucket=args.s3_bucket, experiment_id=args.experiment)
+        return S3ImageUploader(
+            bucket=args.s3_bucket,
+            experiment_id=args.experiment,
+            credentials_endpoint=args.credentials_endpoint,
+            role_alias=args.role_alias,
+            cert_dir=args.cert_dir,
+        )
     return LocalImageSaver(experiment_id=args.experiment)
 
 
@@ -218,6 +224,10 @@ def parse_args():
                         help="Directory containing IoT certificates")
     parser.add_argument("--s3-bucket", default=None,
                         help="S3 bucket for image uploads")
+    parser.add_argument("--credentials-endpoint", default=None,
+                        help="IoT credentials provider endpoint for S3 access")
+    parser.add_argument("--role-alias", default="antvision-device-alias",
+                        help="IoT role alias for credentials provider")
     parser.add_argument("--capture-interval", default=15, type=int,
                         help="Min frames between motion captures")
     return parser.parse_args()

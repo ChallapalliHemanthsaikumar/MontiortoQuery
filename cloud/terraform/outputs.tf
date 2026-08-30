@@ -17,3 +17,12 @@ output "lambda_function" {
 output "iot_topic" {
   value = "${var.project_name}/events"
 }
+
+output "iot_role_alias" {
+  value = aws_iot_role_alias.device_alias.alias
+}
+
+output "iot_credentials_endpoint" {
+  value = data.aws_iot_endpoint.credentials.endpoint_address
+}
+

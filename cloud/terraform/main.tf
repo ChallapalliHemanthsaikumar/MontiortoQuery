@@ -47,6 +47,10 @@ resource "aws_iot_policy" "device_policy" {
   })
 }
 
+data "aws_iot_endpoint" "credentials" {
+  endpoint_type = "iot:CredentialProvider"
+}
+
 resource "aws_iot_topic_rule" "events_to_lambda" {
   name        = "${var.project_name}_events"
   enabled     = true
@@ -138,6 +142,64 @@ resource "aws_lambda_permission" "iot_invoke" {
   function_name = aws_lambda_function.event_processor.function_name
   principal     = "iot.amazonaws.com"
   source_arn    = aws_iot_topic_rule.events_to_lambda.arn
+}
+
+# ─── IoT Credentials Provider (Pi gets temp S3 creds via its certs) ───
+
+resource "aws_iam_role" "device_role" {
+  name = "${var.project_name}-device-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "credentials.iot.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "device_s3_policy" {
+  name = "${var.project_name}-device-s3-policy"
+  role = aws_iam_role.device_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject"
+        ]
+        Resource = "${aws_s3_bucket.data.arn}/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iot_role_alias" "device_alias" {
+  alias               = "${var.project_name}-device-alias"
+  role_arn             = aws_iam_role.device_role.arn
+  credential_duration  = 3600
+}
+
+resource "aws_iot_policy" "credentials_policy" {
+  name = "${var.project_name}-credentials-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["iot:AssumeRoleWithCertificate"]
+        Resource = aws_iot_role_alias.device_alias.arn
+      }
+    ]
+  })
 }
 
 # ─── IAM ─────────────────────────────────────────────────────
