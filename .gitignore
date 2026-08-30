@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Data (large files, local only)
+data/*
+!data/.gitkeep
+
+# Environment variables
+.env
+.env.local
+
+# Terraform
+cloud/terraform/.terraform/
+cloud/terraform/*.tfstate
+cloud/terraform/*.tfstate.backup
+cloud/terraform/*.tfvars
+
+# Logs
+*.log
+
+# Experiment output (large files)
+experiments/*/output/
+experiments/*/video/
+experiments/*/frames/
