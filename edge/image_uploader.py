@@ -70,7 +70,7 @@ class S3ImageUploader:
 
     def upload_frame(self, frame, frame_num, trigger="motion", metadata=None):
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-        key = f"{self.experiment_id}/frames/{trigger}_{timestamp}_f{frame_num}.jpg"
+        key = f"{self.experiment_id}/{trigger}/{timestamp}_f{frame_num}.jpg"
 
         _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
 
@@ -99,8 +99,10 @@ class LocalImageSaver:
 
     def upload_frame(self, frame, frame_num, trigger="motion", metadata=None):
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-        filename = f"{trigger}_{timestamp}_f{frame_num}.jpg"
-        path = os.path.join(self.output_dir, filename)
+        trigger_dir = os.path.join(self.output_dir, trigger)
+        os.makedirs(trigger_dir, exist_ok=True)
+        filename = f"{timestamp}_f{frame_num}.jpg"
+        path = os.path.join(trigger_dir, filename)
         cv2.imwrite(path, frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
         print(f"  [saved] {path}")
         return path
