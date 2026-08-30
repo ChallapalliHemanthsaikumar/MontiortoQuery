@@ -202,6 +202,125 @@ resource "aws_iot_policy" "credentials_policy" {
   })
 }
 
+# ─── Dashboard API (API Gateway + Lambda) ────────────────────
+
+data "archive_file" "api_lambda_zip" {
+  type        = "zip"
+  source_file = "${path.module}/../lambda/api_handler.py"
+  output_path = "${path.module}/api_lambda.zip"
+}
+
+resource "aws_lambda_function" "api" {
+  filename         = data.archive_file.api_lambda_zip.output_path
+  function_name    = "${var.project_name}-dashboard-api"
+  role             = aws_iam_role.api_lambda_role.arn
+  handler          = "api_handler.lambda_handler"
+  runtime          = "python3.11"
+  source_code_hash = data.archive_file.api_lambda_zip.output_base64sha256
+  timeout          = 15
+
+  environment {
+    variables = {
+      DYNAMODB_TABLE = aws_dynamodb_table.metrics.name
+      S3_BUCKET      = aws_s3_bucket.data.id
+    }
+  }
+}
+
+resource "aws_apigatewayv2_api" "dashboard" {
+  name          = "${var.project_name}-dashboard-api"
+  protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = ["*"]
+    allow_methods = ["GET", "OPTIONS"]
+    allow_headers = ["Content-Type"]
+  }
+}
+
+resource "aws_apigatewayv2_integration" "api" {
+  api_id                 = aws_apigatewayv2_api.dashboard.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.api.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "api" {
+  api_id    = aws_apigatewayv2_api.dashboard.id
+  route_key = "GET /api/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.dashboard.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+resource "aws_lambda_permission" "api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.dashboard.execution_arn}/*/*"
+}
+
+resource "aws_iam_role" "api_lambda_role" {
+  name = "${var.project_name}-api-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "api_lambda_policy" {
+  name = "${var.project_name}-api-lambda-policy"
+  role = aws_iam_role.api_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Query",
+          "dynamodb:GetItem"
+        ]
+        Resource = aws_dynamodb_table.metrics.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.data.arn,
+          "${aws_s3_bucket.data.arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
 # ─── IAM ─────────────────────────────────────────────────────
 
 resource "aws_iam_role" "lambda_role" {

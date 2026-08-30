@@ -147,12 +147,47 @@
         }
 
         function loadData() {
-            loadLocalData();
+            const experiment = document.getElementById('experimentSelect').value;
+            if (API_BASE) {
+                loadFromAWS(experiment);
+            } else {
+                loadLocalData();
+            }
             document.getElementById('lastUpdate').textContent = 'Updated: ' + new Date().toLocaleTimeString();
         }
 
+        function loadFromAWS(experiment) {
+            fetch(`${API_BASE}/api/metrics?experiment=${experiment}`)
+                .then(r => r.json())
+                .then(updateMetrics)
+                .catch(e => console.log('API metrics error:', e));
+
+            fetch(`${API_BASE}/api/events?experiment=${experiment}`)
+                .then(r => r.json())
+                .then(updateEvents)
+                .catch(e => console.log('API events error:', e));
+
+            fetch(`${API_BASE}/api/images?experiment=${experiment}`)
+                .then(r => r.json())
+                .then(images => {
+                    const urls = images.map(i => i.url);
+                    updateImages(urls);
+                })
+                .catch(e => console.log('API images error:', e));
+
+            fetch(`${API_BASE}/api/latest?experiment=${experiment}`)
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('latestCapture');
+                    if (data.image) {
+                        el.innerHTML = `<img src="${data.image}" style="max-width: 100%; border-radius: 6px;">
+                            <p style="color: #8b949e; font-size: 11px; margin-top: 8px;">${data.key}</p>`;
+                    }
+                })
+                .catch(e => console.log('API latest error:', e));
+        }
+
         function loadLocalData() {
-            // Load from local files (metrics.json and events.json)
             fetch('data/metrics.json')
                 .then(r => r.json())
                 .then(updateMetrics)
@@ -178,11 +213,12 @@
 
         function updateMetrics(m) {
             document.getElementById('statusDot').className = 'status live';
-            document.getElementById('antCount').textContent = m.total_unique_ants || 0;
-            document.getElementById('zoneOccupancy').textContent = m.peak_zone_occupancy || 0;
+            document.getElementById('antCount').textContent = m.total_unique_ants || m.ant_count || 0;
+            document.getElementById('zoneOccupancy').textContent = m.peak_zone_occupancy || m.zone_occupancy || 0;
             document.getElementById('zoneEntries').textContent = m.total_zone_entries || 0;
-            document.getElementById('avgSpeed').textContent = m.avg_speed_px_per_sec ? m.avg_speed_px_per_sec.toFixed(1) : '0';
-            document.getElementById('totalFrames').textContent = m.total_frames || 0;
+            const speed = m.avg_speed_px_per_sec || m.avg_speed || 0;
+            document.getElementById('avgSpeed').textContent = typeof speed === 'number' ? speed.toFixed(1) : speed;
+            document.getElementById('totalFrames').textContent = m.total_frames || m.last_updated || '--';
 
             if (m.first_discovery_time_sec >= 0) {
                 document.getElementById('firstDiscovery').textContent = m.first_discovery_time_sec + 's';

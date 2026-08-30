@@ -26,3 +26,7 @@ output "iot_credentials_endpoint" {
   value = data.aws_iot_endpoint.credentials.endpoint_address
 }
 
+output "dashboard_api_url" {
+  value = aws_apigatewayv2_api.dashboard.api_endpoint
+}
+
