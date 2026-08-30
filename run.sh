@@ -1,8 +1,11 @@
 #!/bin/bash
+# Load config from .env file (not committed to git)
+source ~/antvision/.env
+
 cd ~/antvision
 PYTHONPATH=. python edge/main.py --live \
-  --iot-endpoint a3ix2ylhjo5lpv-ats.iot.us-west-2.amazonaws.com \
-  --s3-bucket antvision-data-dev \
-  --credentials-endpoint c1bpab6u4qgyi.credentials.iot.us-west-2.amazonaws.com \
-  --role-alias antvision-device-alias \
+  --iot-endpoint "$IOT_ENDPOINT" \
+  --s3-bucket "$S3_BUCKET" \
+  --credentials-endpoint "$CREDENTIALS_ENDPOINT" \
+  --role-alias "$ROLE_ALIAS" \
   -o data/test/live_output.avi
