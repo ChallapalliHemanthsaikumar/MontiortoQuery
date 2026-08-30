@@ -1,6 +1,7 @@
 """Food zone definition and entry/exit detection."""
 
 import cv2
+import numpy as np
 from dataclasses import dataclass
 from enum import Enum
 
@@ -17,6 +18,36 @@ class ZoneTransition:
     frame: int
     x: int
     y: int
+
+
+def detect_food(frame, brightness_thresh=200, min_area=100, padding=40):
+    """Auto-detect the food source as the brightest blob in the frame."""
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (11, 11), 0)
+    _, bright = cv2.threshold(blurred, brightness_thresh, 255, cv2.THRESH_BINARY)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    bright = cv2.morphologyEx(bright, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+    contours, _ = cv2.findContours(bright, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    best = None
+    best_area = 0
+    for c in contours:
+        area = cv2.contourArea(c)
+        if area >= min_area and area > best_area:
+            best = c
+            best_area = area
+
+    if best is None:
+        return None
+
+    x, y, w, h = cv2.boundingRect(best)
+    x = max(0, x - padding)
+    y = max(0, y - padding)
+    w = w + padding * 2
+    h = h + padding * 2
+    return FoodZone(x, y, w, h)
 
 
 class FoodZone:

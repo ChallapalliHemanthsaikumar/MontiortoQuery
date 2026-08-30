@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from edge.camera.capture import VideoCapture
 from edge.detection.preprocessor import Preprocessor
 from edge.detection.detector import AntDetector
-from edge.detection.food_zone import FoodZone
+from edge.detection.food_zone import FoodZone, detect_food
 from edge.detection.motion import MotionDetector
 from edge.tracking.tracker import CentroidTracker
 from edge.tracking.trajectory import TrajectoryRecorder
@@ -79,7 +79,7 @@ def run_pipeline(args):
 
         trajectory = TrajectoryRecorder(fps=fps)
         analyzer = BehaviorAnalyzer(fps=fps)
-        food_zone = FoodZone(x=360, y=300, w=120, h=120)
+        food_zone = None
 
         emitter.emit_experiment_start()
         writer = None
@@ -90,6 +90,15 @@ def run_pipeline(args):
             frame = cap.read()
             if frame is None:
                 break
+
+            if food_zone is None:
+                food_zone = detect_food(frame)
+                if food_zone:
+                    print(f"Food detected at x={food_zone.x}, y={food_zone.y}, "
+                          f"w={food_zone.w}, h={food_zone.h}")
+                else:
+                    food_zone = FoodZone(x=220, y=140, w=200, h=200)
+                    print("No food detected, using default zone")
 
             mask = preprocessor.process(frame)
             detections = detector.detect(mask)
