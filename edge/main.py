@@ -132,21 +132,23 @@ def run_pipeline(args):
                 cv2.putText(annotated, f"Motion: {motion_pct}%", (10, 115),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
 
-            # Upload frame on motion, ant activity, or periodic heartbeat
+            # Upload: heartbeat every 1 hour, motion immediately, ants immediately
             should_capture = False
             trigger = ""
 
-            periodic_interval = int(fps * 30)
+            heartbeat_interval = int(fps * 3600)
             if motion_detected:
                 should_capture = True
                 trigger = "motion"
-            if ant_count > 0 and prev_ant_count == 0:
+            if ant_count > 0:
                 should_capture = True
+                trigger = "ant_detected"
+            if ant_count > 0 and prev_ant_count == 0:
                 trigger = "ant_arrival"
             if len(transitions) > 0:
                 should_capture = True
                 trigger = "zone_event"
-            if periodic_interval > 0 and frame_num % periodic_interval == 0:
+            if heartbeat_interval > 0 and frame_num % heartbeat_interval == 0:
                 should_capture = True
                 trigger = trigger or "heartbeat"
 
