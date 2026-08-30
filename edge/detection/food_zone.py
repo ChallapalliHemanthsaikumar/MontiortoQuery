@@ -20,30 +20,39 @@ class ZoneTransition:
     y: int
 
 
-def detect_food(frame, brightness_thresh=190, min_area=80, max_area=5000, padding=40):
-    """Auto-detect the food source as a small bright blob in the frame."""
+def detect_food(frame, padding=40):
+    """Auto-detect the food source as a small bright/white blob in the frame."""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (11, 11), 0)
-    _, bright = cv2.threshold(blurred, brightness_thresh, 255, cv2.THRESH_BINARY)
+
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    _, saturation, value = cv2.split(hsv)
+
+    # White food (sugar, etc.): very high brightness + low saturation
+    white_mask = cv2.inRange(hsv, (0, 0, 220), (180, 50, 255))
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    bright = cv2.morphologyEx(bright, cv2.MORPH_OPEN, kernel, iterations=2)
+    white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_OPEN, kernel, iterations=2)
+    white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
 
-    contours, _ = cv2.findContours(bright, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     best = None
-    best_circularity = 0
+    best_score = 0
     for c in contours:
         area = cv2.contourArea(c)
-        if area < min_area or area > max_area:
+        if area < 30 or area > 3000:
             continue
         perimeter = cv2.arcLength(c, True)
         if perimeter == 0:
             continue
         circularity = 4 * np.pi * area / (perimeter * perimeter)
-        if circularity > best_circularity:
+        if circularity < 0.3:
+            continue
+        score = circularity
+        if score > best_score:
             best = c
-            best_circularity = circularity
+            best_score = score
 
     if best is None:
         return None
