@@ -123,10 +123,11 @@ def run_pipeline(args):
                 cv2.putText(annotated, f"Motion: {motion_pct}%", (10, 115),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
 
-            # Upload frame on motion or ant activity change
+            # Upload frame on motion, ant activity, or periodic heartbeat
             should_capture = False
             trigger = ""
 
+            periodic_interval = int(fps * 30)
             if motion_detected:
                 should_capture = True
                 trigger = "motion"
@@ -136,6 +137,9 @@ def run_pipeline(args):
             if len(transitions) > 0:
                 should_capture = True
                 trigger = "zone_event"
+            if periodic_interval > 0 and frame_num % periodic_interval == 0:
+                should_capture = True
+                trigger = trigger or "heartbeat"
 
             if should_capture:
                 uploader.upload_frame(annotated, frame_num, trigger=trigger,
