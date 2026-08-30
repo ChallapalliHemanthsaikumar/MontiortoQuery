@@ -86,41 +86,49 @@ def _get_events(experiment_id, headers):
 
 
 def _get_images(experiment_id, headers):
-    response = s3.list_objects_v2(
-        Bucket=S3_BUCKET,
-        Prefix=f"{experiment_id}/frames/",
-        MaxKeys=50,
-    )
+    folders = ["heartbeat", "motion", "ant_detected", "ant_arrival", "zone_event"]
     images = []
-    for obj in response.get("Contents", []):
-        url = s3.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": S3_BUCKET, "Key": obj["Key"]},
-            ExpiresIn=3600,
+
+    for folder in folders:
+        response = s3.list_objects_v2(
+            Bucket=S3_BUCKET,
+            Prefix=f"{experiment_id}/{folder}/",
+            MaxKeys=20,
         )
-        filename = obj["Key"].split("/")[-1]
-        images.append({
-            "key": obj["Key"],
-            "url": url,
-            "filename": filename,
-            "size": obj["Size"],
-            "last_modified": obj["LastModified"].isoformat(),
-        })
+        for obj in response.get("Contents", []):
+            url = s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": S3_BUCKET, "Key": obj["Key"]},
+                ExpiresIn=3600,
+            )
+            filename = obj["Key"].split("/")[-1]
+            images.append({
+                "key": obj["Key"],
+                "url": url,
+                "filename": filename,
+                "trigger": folder,
+                "size": obj["Size"],
+                "last_modified": obj["LastModified"].isoformat(),
+            })
+
     images.sort(key=lambda x: x["last_modified"], reverse=True)
-    return {"statusCode": 200, "headers": headers, "body": json.dumps(images)}
+    return {"statusCode": 200, "headers": headers, "body": json.dumps(images[:50])}
 
 
 def _get_latest(experiment_id, headers):
-    response = s3.list_objects_v2(
-        Bucket=S3_BUCKET,
-        Prefix=f"{experiment_id}/frames/",
-        MaxKeys=1000,
-    )
-    contents = response.get("Contents", [])
-    if not contents:
+    all_objects = []
+    for folder in ["heartbeat", "motion", "ant_detected", "ant_arrival", "zone_event"]:
+        response = s3.list_objects_v2(
+            Bucket=S3_BUCKET,
+            Prefix=f"{experiment_id}/{folder}/",
+            MaxKeys=10,
+        )
+        all_objects.extend(response.get("Contents", []))
+
+    if not all_objects:
         return {"statusCode": 200, "headers": headers, "body": json.dumps({"image": None})}
 
-    latest = max(contents, key=lambda x: x["LastModified"])
+    latest = max(all_objects, key=lambda x: x["LastModified"])
     url = s3.generate_presigned_url(
         "get_object",
         Params={"Bucket": S3_BUCKET, "Key": latest["Key"]},

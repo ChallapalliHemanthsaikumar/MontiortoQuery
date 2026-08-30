@@ -142,7 +142,7 @@
 
         function init() {
             const params = new URLSearchParams(window.location.search);
-            API_BASE = params.get('api') || '';
+            API_BASE = params.get('api') || 'https://nj0fwjbvoj.execute-api.us-west-2.amazonaws.com';
             loadData();
         }
 
@@ -150,8 +150,6 @@
             const experiment = document.getElementById('experimentSelect').value;
             if (API_BASE) {
                 loadFromAWS(experiment);
-            } else {
-                loadLocalData();
             }
             document.getElementById('lastUpdate').textContent = 'Updated: ' + new Date().toLocaleTimeString();
         }
