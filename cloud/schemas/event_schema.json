@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AntVision Behavioral Event",
+  "type": "object",
+  "required": ["device_id", "experiment_id", "timestamp", "event_type"],
+  "properties": {
+    "device_id": {
+      "type": "string",
+      "description": "Unique identifier for the Raspberry Pi device"
+    },
+    "experiment_id": {
+      "type": "string",
+      "description": "Experiment identifier (e.g., exp001)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp"
+    },
+    "frame": {
+      "type": "integer",
+      "description": "Frame number in the video"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "food_zone_enter",
+        "food_zone_exit",
+        "ant_detected",
+        "experiment_start",
+        "experiment_end",
+        "metrics_snapshot"
+      ]
+    },
+    "ant_id": {
+      "type": "integer",
+      "description": "Tracked ant identifier"
+    },
+    "x": {
+      "type": "integer",
+      "description": "X coordinate in pixels"
+    },
+    "y": {
+      "type": "integer",
+      "description": "Y coordinate in pixels"
+    },
+    "speed": {
+      "type": "number",
+      "description": "Movement speed in pixels per second"
+    },
+    "zone": {
+      "type": "string",
+      "enum": ["food", "outside"]
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Snapshot metrics for metrics_snapshot events",
+      "properties": {
+        "ant_count": { "type": "integer" },
+        "zone_occupancy": { "type": "integer" },
+        "avg_speed": { "type": "number" }
+      }
+    }
+  }
+}
