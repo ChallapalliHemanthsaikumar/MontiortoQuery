@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AntVision Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; }
+
+        .header { background: #161b22; padding: 16px 24px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 12px; }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+        .status.live { background: #3fb950; animation: pulse 2s infinite; }
+        .status.offline { background: #f85149; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .metric-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+        .metric-card .label { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+        .metric-card .value.green { color: #3fb950; }
+        .metric-card .value.blue { color: #58a6ff; }
+        .metric-card .value.orange { color: #d29922; }
+        .metric-card .value.red { color: #f85149; }
+
+        .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        @media (max-width: 768px) { .panels { grid-template-columns: 1fr; } }
+
+        .panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+        .panel-header { padding: 12px 16px; border-bottom: 1px solid #30363d; font-weight: 600; font-size: 14px; }
+        .panel-body { padding: 16px; }
+
+        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .image-card { border: 1px solid #30363d; border-radius: 6px; overflow: hidden; cursor: pointer; transition: border-color 0.2s; }
+        .image-card:hover { border-color: #58a6ff; }
+        .image-card img { width: 100%; height: 150px; object-fit: cover; }
+        .image-card .info { padding: 8px; font-size: 11px; color: #8b949e; }
+        .image-card .trigger { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+        .trigger.motion { background: #d29922; color: #000; }
+        .trigger.ant_arrival { background: #3fb950; color: #000; }
+        .trigger.zone_event { background: #f85149; color: #fff; }
+
+        .event-log { max-height: 400px; overflow-y: auto; }
+        .event-item { padding: 8px 12px; border-bottom: 1px solid #21262d; font-size: 13px; font-family: monospace; }
+        .event-item .time { color: #8b949e; }
+        .event-item .type { font-weight: 600; }
+        .event-item .type.enter { color: #3fb950; }
+        .event-item .type.exit { color: #f85149; }
+        .event-item .type.snapshot { color: #58a6ff; }
+
+        .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; justify-content: center; align-items: center; }
+        .lightbox.active { display: flex; }
+        .lightbox img { max-width: 90%; max-height: 90%; border-radius: 8px; }
+
+        .controls { display: flex; gap: 12px; margin-bottom: 24px; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #e1e4e8; cursor: pointer; font-size: 13px; }
+        .btn:hover { background: #30363d; }
+        .btn.primary { background: #238636; border-color: #238636; }
+        .btn.primary:hover { background: #2ea043; }
+
+        .full-width { grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span class="status" id="statusDot"></span>
+        <h1>AntVision Dashboard</h1>
+        <span id="lastUpdate" style="margin-left: auto; font-size: 12px; color: #8b949e;"></span>
+    </div>
+
+    <div class="container">
+        <div class="controls">
+            <button class="btn primary" onclick="loadData()">Refresh</button>
+            <button class="btn" onclick="setAutoRefresh()">Auto-Refresh: <span id="autoLabel">OFF</span></button>
+            <select id="experimentSelect" class="btn" onchange="loadData()">
+                <option value="exp001">exp001</option>
+            </select>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="label">Ants Tracked</div>
+                <div class="value green" id="antCount">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">In Food Zone</div>
+                <div class="value orange" id="zoneOccupancy">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Zone Entries</div>
+                <div class="value blue" id="zoneEntries">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Avg Speed (px/s)</div>
+                <div class="value" id="avgSpeed">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">First Discovery</div>
+                <div class="value green" id="firstDiscovery">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Total Frames</div>
+                <div class="value" id="totalFrames">--</div>
+            </div>
+        </div>
+
+        <div class="panels">
+            <div class="panel">
+                <div class="panel-header">Event Log</div>
+                <div class="panel-body event-log" id="eventLog">
+                    <div class="event-item"><span class="time">Waiting for data...</span></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">Latest Capture</div>
+                <div class="panel-body" id="latestCapture" style="text-align: center;">
+                    <p style="color: #8b949e; padding: 40px;">No captures yet</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel full-width" style="margin-bottom: 24px;">
+            <div class="panel-header">Motion & Activity Captures</div>
+            <div class="panel-body">
+                <div class="image-grid" id="imageGrid">
+                    <p style="color: #8b949e;">No images captured yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <img id="lightboxImg" src="">
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let API_BASE = '';
+
+        function init() {
+            const params = new URLSearchParams(window.location.search);
+            API_BASE = params.get('api') || '';
+            loadData();
+        }
+
+        function loadData() {
+            loadLocalData();
+            document.getElementById('lastUpdate').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+        }
+
+        function loadLocalData() {
+            // Load from local files (metrics.json and events.json)
+            fetch('data/metrics.json')
+                .then(r => r.json())
+                .then(updateMetrics)
+                .catch(() => console.log('No metrics.json found'));
+
+            fetch('data/events.json')
+                .then(r => r.json())
+                .then(updateEvents)
+                .catch(() => console.log('No events.json found'));
+
+            fetch('data/captures/')
+                .then(r => r.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const links = Array.from(doc.querySelectorAll('a'))
+                        .map(a => a.href)
+                        .filter(h => h.endsWith('.jpg'));
+                    updateImages(links);
+                })
+                .catch(() => console.log('No captures found'));
+        }
+
+        function updateMetrics(m) {
+            document.getElementById('statusDot').className = 'status live';
+            document.getElementById('antCount').textContent = m.total_unique_ants || 0;
+            document.getElementById('zoneOccupancy').textContent = m.peak_zone_occupancy || 0;
+            document.getElementById('zoneEntries').textContent = m.total_zone_entries || 0;
+            document.getElementById('avgSpeed').textContent = m.avg_speed_px_per_sec ? m.avg_speed_px_per_sec.toFixed(1) : '0';
+            document.getElementById('totalFrames').textContent = m.total_frames || 0;
+
+            if (m.first_discovery_time_sec >= 0) {
+                document.getElementById('firstDiscovery').textContent = m.first_discovery_time_sec + 's';
+            } else {
+                document.getElementById('firstDiscovery').textContent = 'N/A';
+            }
+        }
+
+        function updateEvents(events) {
+            const log = document.getElementById('eventLog');
+            if (!events || events.length === 0) return;
+
+            log.innerHTML = events.slice().reverse().map(e => {
+                const time = new Date(e.timestamp).toLocaleTimeString();
+                let typeClass = '';
+                if (e.event_type.includes('enter')) typeClass = 'enter';
+                else if (e.event_type.includes('exit')) typeClass = 'exit';
+                else if (e.event_type.includes('snapshot')) typeClass = 'snapshot';
+
+                let detail = '';
+                if (e.ant_id !== undefined) detail = ` Ant #${e.ant_id}`;
+                if (e.metrics) detail = ` count=${e.metrics.ant_count} zone=${e.metrics.zone_occupancy}`;
+
+                return `<div class="event-item">
+                    <span class="time">${time}</span>
+                    <span class="type ${typeClass}">${e.event_type}</span>${detail}
+                </div>`;
+            }).join('');
+        }
+
+        function updateImages(urls) {
+            const grid = document.getElementById('imageGrid');
+            const latest = document.getElementById('latestCapture');
+
+            if (!urls || urls.length === 0) return;
+
+            if (urls.length > 0) {
+                latest.innerHTML = `<img src="${urls[urls.length - 1]}" style="max-width: 100%; border-radius: 6px;">`;
+            }
+
+            grid.innerHTML = urls.slice().reverse().map(url => {
+                const filename = url.split('/').pop();
+                const parts = filename.replace('.jpg', '').split('_');
+                const trigger = parts[0] || 'motion';
+
+                return `<div class="image-card" onclick="openLightbox('${url}')">
+                    <img src="${url}" loading="lazy">
+                    <div class="info">
+                        <span class="trigger ${trigger}">${trigger}</span>
+                        ${filename}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function openLightbox(src) {
+            document.getElementById('lightboxImg').src = src;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+
+        function setAutoRefresh() {
+            const label = document.getElementById('autoLabel');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                label.textContent = 'OFF';
+            } else {
+                autoRefreshInterval = setInterval(loadData, 5000);
+                label.textContent = '5s';
+            }
+        }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+        init();
+    </script>
+</body>
+</html>
