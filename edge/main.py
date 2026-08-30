@@ -2,6 +2,7 @@
 
 import argparse
 import cv2
+import signal
 import sys
 import os
 
@@ -18,6 +19,16 @@ from edge.event_emitter import EventEmitter
 from edge.iot_publisher import LocalPublisher
 
 SNAPSHOT_INTERVAL = 15
+running = True
+
+
+def handle_signal(sig, frame):
+    global running
+    print("\nStopping pipeline gracefully...")
+    running = False
+
+
+signal.signal(signal.SIGINT, handle_signal)
 
 
 def get_capture(args):
@@ -57,7 +68,7 @@ def run_pipeline(args):
         writer = None
         frame_num = 0
 
-        while True:
+        while running:
             frame = cap.read()
             if frame is None:
                 break
