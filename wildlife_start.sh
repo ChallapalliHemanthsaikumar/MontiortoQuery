@@ -13,7 +13,7 @@ case "$ACTION" in
     pkill -f "wildlife.main" 2>/dev/null
     sleep 1
     echo "Starting WildlifeCam (experiment: $EXPERIMENT)..."
-    nohup python -m wildlife.main \
+    nohup python -u -m wildlife.main \
         --live \
         --rotate 180 \
         --experiment "$EXPERIMENT" \
