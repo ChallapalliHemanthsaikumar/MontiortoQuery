@@ -137,6 +137,13 @@ def run_wildlife_cam(args):
                     continue
                 break
 
+            if args.rotate == 180:
+                frame = cv2.rotate(frame, cv2.ROTATE_180)
+            elif args.rotate == 90:
+                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+            elif args.rotate == 270:
+                frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
             frame_num += 1
             logger.log_frame()
             brightness = daylight.get_brightness(frame)
@@ -251,6 +258,8 @@ def parse_args():
                         help="Pi Camera FPS (default: 15)")
     parser.add_argument("--show", action="store_true",
                         help="Show live preview window")
+    parser.add_argument("--rotate", type=int, default=0, choices=[0, 90, 180, 270],
+                        help="Rotate frame (0, 90, 180, 270 degrees)")
 
     # Experiment
     parser.add_argument("--experiment", "-e", default="wildlife001",
