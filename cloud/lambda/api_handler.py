@@ -86,7 +86,8 @@ def _get_events(experiment_id, headers):
 
 
 def _get_images(experiment_id, headers):
-    folders = ["heartbeat", "motion", "ant_detected", "ant_arrival", "zone_event"]
+    folders = ["heartbeat", "motion", "ant_detected", "ant_arrival", "zone_event",
+                "wildlife_motion"]
     images = []
 
     for folder in folders:
@@ -117,7 +118,8 @@ def _get_images(experiment_id, headers):
 
 def _get_latest(experiment_id, headers):
     all_objects = []
-    for folder in ["heartbeat", "motion", "ant_detected", "ant_arrival", "zone_event"]:
+    for folder in ["heartbeat", "motion", "ant_detected", "ant_arrival", "zone_event",
+                    "wildlife_motion"]:
         response = s3.list_objects_v2(
             Bucket=S3_BUCKET,
             Prefix=f"{experiment_id}/{folder}/",
