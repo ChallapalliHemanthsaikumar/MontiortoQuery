@@ -133,4 +133,4 @@ class WildlifeMotionDetector:
         return triggered, round(motion_pct, 2), boxes
 
     def warmup_needed(self):
-        return self.frame_count < 30
+        return self.frame_count < 10
