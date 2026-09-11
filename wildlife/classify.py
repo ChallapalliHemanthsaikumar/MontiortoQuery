@@ -46,7 +46,19 @@ class WildlifeClassifier:
             verbose=False,
             device=self.device,
         )
+        return self._parse_results(results)
 
+    def classify_frame(self, frame):
+        """Classify a numpy array frame directly (for inline pipeline use)."""
+        results = self.model(
+            frame,
+            conf=self.confidence,
+            verbose=False,
+            device=self.device,
+        )
+        return self._parse_results(results)
+
+    def _parse_results(self, results):
         detections = []
         for r in results:
             for box in r.boxes:
@@ -65,8 +77,13 @@ class WildlifeClassifier:
                     "bbox": [int(x1), int(y1), int(x2), int(y2)],
                     "is_wildlife": is_wildlife,
                 })
-
         return detections
+
+    def get_wildlife(self, detections):
+        return [d for d in detections if d["is_wildlife"]]
+
+    def get_persons(self, detections):
+        return [d for d in detections if d["class_name"] == "person"]
 
     def classify_and_annotate(self, image_path, output_path=None):
         detections = self.classify(image_path)

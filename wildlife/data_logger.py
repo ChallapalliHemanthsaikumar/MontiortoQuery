@@ -36,11 +36,11 @@ class DataLogger:
                 writer.writerow([
                     "timestamp", "frame_num", "trigger", "brightness",
                     "motion_pct", "num_detections", "boxes", "image_path",
-                    "free_gb"
+                    "free_gb", "species"
                 ])
 
     def log_event(self, frame_num, trigger, brightness, motion_pct,
-                  num_detections, boxes, image_path, free_gb):
+                  num_detections, boxes, image_path, free_gb, species=""):
         ts = datetime.now(timezone.utc).isoformat()
         event = {
             "timestamp": ts,
@@ -52,6 +52,7 @@ class DataLogger:
             "boxes": boxes,
             "image_path": image_path,
             "free_gb": free_gb,
+            "species": species,
         }
         self.events.append(event)
 
@@ -59,7 +60,8 @@ class DataLogger:
             writer = csv.writer(f)
             writer.writerow([
                 ts, frame_num, trigger, brightness, motion_pct,
-                num_detections, json.dumps(boxes), image_path, free_gb
+                num_detections, json.dumps(boxes), image_path, free_gb,
+                species
             ])
 
         self.stats["images_saved"] += 1

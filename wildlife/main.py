@@ -18,6 +18,7 @@ from wildlife.smart_motion import WildlifeMotionDetector
 from wildlife.daylight import DaylightDetector
 from wildlife.storage_manager import StorageManager
 from wildlife.data_logger import DataLogger
+from wildlife.classify import WildlifeClassifier
 from edge.image_uploader import S3ImageUploader, LocalImageSaver
 
 running = True
@@ -56,12 +57,27 @@ def get_uploader(args):
 
 
 def annotate_frame(frame, brightness, motion_pct, boxes, trigger, frame_num,
-                   storage_stats):
+                   storage_stats, species="", yolo_detections=None):
     annotated = frame.copy()
+
+    # Draw motion bounding boxes (green)
     for (x, y, w, h) in boxes:
         cv2.rectangle(annotated, (x, y), (x + w, y + h), (0, 255, 0), 2)
         cv2.putText(annotated, "MOTION", (x, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+    # Draw YOLO detections (orange for wildlife, red for person)
+    if yolo_detections:
+        for det in yolo_detections:
+            x1, y1, x2, y2 = det["bbox"]
+            label = f"{det['class_name']} {det['confidence']:.0%}"
+            if det["is_wildlife"]:
+                color = (255, 165, 0)
+            else:
+                color = (0, 0, 255)
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(annotated, label, (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
     y_pos = 30
     cv2.putText(annotated, f"WildlifeCam | Frame {frame_num}", (10, y_pos),
@@ -77,6 +93,10 @@ def annotate_frame(frame, brightness, motion_pct, boxes, trigger, frame_num,
     if trigger:
         cv2.putText(annotated, f"TRIGGER: {trigger}", (10, y_pos),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        y_pos += 22
+    if species:
+        cv2.putText(annotated, f"Species: {species}", (10, y_pos),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 165, 0), 2)
         y_pos += 22
     cv2.putText(annotated,
                 f"Disk: {storage_stats['free_gb']}GB | "
@@ -97,7 +117,23 @@ def run_wildlife_cam(args):
         min_motion_pct=args.min_motion_pct,
         cooldown_seconds=args.cooldown,
         fps=1.0 / capture_interval,
+        min_solidity=args.min_solidity,
+        confirm_frames=args.confirm_frames,
+        match_distance=args.match_distance,
     )
+
+    classifier = None
+    if args.use_classifier:
+        try:
+            classifier = WildlifeClassifier(
+                model_name=args.classifier_model,
+                confidence=args.classifier_confidence,
+            )
+            print(f"  YOLO classifier loaded: {args.classifier_model}")
+        except Exception as e:
+            print(f"  WARNING: Could not load classifier: {e}")
+            print(f"  Continuing without YOLO classification.")
+
     daylight = DaylightDetector(brightness_threshold=args.dark_threshold)
     data_dir = os.path.join("data", "wildlife", args.experiment)
     storage = StorageManager(
@@ -119,7 +155,11 @@ def run_wildlife_cam(args):
     print(f"  Min motion area:  {args.min_area}px")
     print(f"  Min free disk:    {args.min_free_gb}GB")
     print(f"  Max saves/hour:   {args.max_per_hour}")
+    print(f"  Min solidity:     {args.min_solidity}")
+    print(f"  Confirm frames:   {args.confirm_frames}")
     print(f"  Dark threshold:   {args.dark_threshold}")
+    print(f"  Classifier:       {'YOLO ' + args.classifier_model if classifier else 'off'}")
+    print(f"  Classifier-only:  {args.classifier_only}")
     print(f"  Mode:             {'live Pi Camera' if args.live else 'video file'}")
     print("=" * 50)
 
@@ -165,13 +205,49 @@ def run_wildlife_cam(args):
             motion_triggered, motion_pct, boxes = motion_detector.detect(frame)
             should_capture = False
             trigger = ""
+            species = ""
+            yolo_detections = None
 
             if motion_triggered and not motion_detector.warmup_needed():
-                should_capture = True
-                trigger = "wildlife_motion"
-                logger.log_motion()
-                print(f"[{frame_num}] Motion detected: {motion_pct}% "
-                      f"({len(boxes)} regions) brightness={brightness}")
+                # Run YOLO classifier if enabled
+                if classifier:
+                    yolo_detections = classifier.classify_frame(frame)
+                    wildlife = classifier.get_wildlife(yolo_detections)
+                    persons = classifier.get_persons(yolo_detections)
+
+                    if wildlife:
+                        should_capture = True
+                        trigger = "wildlife_animal"
+                        species = ", ".join(sorted(set(
+                            d["class_name"] for d in wildlife
+                        )))
+                        logger.log_motion()
+                        print(f"[{frame_num}] ANIMAL: {species} "
+                              f"({len(wildlife)} detections) "
+                              f"motion={motion_pct}% brightness={brightness}")
+                    elif persons:
+                        should_capture = True
+                        trigger = "wildlife_person"
+                        species = "person"
+                        logger.log_motion()
+                        print(f"[{frame_num}] Person detected — "
+                              f"motion={motion_pct}% brightness={brightness}")
+                    elif not args.classifier_only:
+                        should_capture = True
+                        trigger = "unclassified_motion"
+                        logger.log_motion()
+                        print(f"[{frame_num}] Unclassified motion: "
+                              f"{motion_pct}% ({len(boxes)} regions) "
+                              f"brightness={brightness}")
+                    else:
+                        print(f"[{frame_num}] Motion rejected by classifier — "
+                              f"no animal found")
+                else:
+                    should_capture = True
+                    trigger = "wildlife_motion"
+                    logger.log_motion()
+                    print(f"[{frame_num}] Motion detected: {motion_pct}% "
+                          f"({len(boxes)} regions) brightness={brightness}")
 
             now = time.time()
             if now - last_heartbeat >= heartbeat_interval:
@@ -190,7 +266,8 @@ def run_wildlife_cam(args):
                     storage_stats = storage.get_stats()
                     annotated = annotate_frame(
                         frame, brightness, motion_pct, boxes, trigger,
-                        frame_num, storage_stats
+                        frame_num, storage_stats, species=species,
+                        yolo_detections=yolo_detections,
                     )
                     path = uploader.upload_frame(
                         annotated, frame_num, trigger=trigger,
@@ -198,12 +275,14 @@ def run_wildlife_cam(args):
                             "brightness": str(brightness),
                             "motion_pct": str(motion_pct),
                             "num_detections": str(len(boxes)),
+                            "species": species,
                         }
                     )
                     storage.record_capture()
                     logger.log_event(
                         frame_num, trigger, brightness, motion_pct,
-                        len(boxes), boxes, path, storage_stats["free_gb"]
+                        len(boxes), boxes, path, storage_stats["free_gb"],
+                        species=species,
                     )
 
             if args.show:
@@ -278,6 +357,22 @@ def parse_args():
                         help="Min contour area in pixels to count as wildlife (default: 3000)")
     parser.add_argument("--min-motion-pct", type=float, default=0.5,
                         help="Min percent of frame with motion (default: 0.5)")
+    parser.add_argument("--min-solidity", type=float, default=0.3,
+                        help="Min contour solidity — filters jagged leaf shapes (default: 0.3)")
+    parser.add_argument("--confirm-frames", type=int, default=2,
+                        help="Require motion in same area for N consecutive frames (default: 2)")
+    parser.add_argument("--match-distance", type=int, default=60,
+                        help="Max pixel distance to match motion across frames (default: 60)")
+
+    # Classifier
+    parser.add_argument("--use-classifier", action="store_true",
+                        help="Enable YOLOv8 animal classifier (requires ultralytics)")
+    parser.add_argument("--classifier-model", default="yolov8n.pt",
+                        help="YOLO model to use (default: yolov8n.pt)")
+    parser.add_argument("--classifier-confidence", type=float, default=0.35,
+                        help="Min confidence for YOLO detections (default: 0.35)")
+    parser.add_argument("--classifier-only", action="store_true",
+                        help="Only save frames where YOLO confirms an animal")
 
     # Daylight
     parser.add_argument("--dark-threshold", type=int, default=30,
