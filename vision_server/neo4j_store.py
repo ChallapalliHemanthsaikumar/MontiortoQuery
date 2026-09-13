@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://127.0.0.1:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "wildlife2026")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "Hemanth1")
 
 _driver = None
 
@@ -72,9 +72,10 @@ def store_event(event):
 
     ts = event.get("timestamp", "")
     try:
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        cleaned = ts.replace("Z", "")
+        dt = datetime.fromisoformat(cleaned)
     except (ValueError, AttributeError):
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now()
 
     hour_key = dt.strftime("%Y-%m-%d_%H")
     obs_id = f"{event.get('camera_id', 'unknown')}_{dt.strftime('%Y%m%dT%H%M%S')}_{event.get('frame_num', 0)}"
@@ -131,6 +132,40 @@ def store_event(event):
         })
 
     return obs_id
+
+
+def store_entities(obs_id, extracted):
+    """Store extracted entities and relationships linked to an observation."""
+    driver = get_driver()
+    entities = extracted.get("entities", [])
+    relationships = extracted.get("relationships", [])
+
+    with driver.session() as session:
+        for entity in entities:
+            session.run("""
+                MATCH (obs:Observation {id: $obs_id})
+                MERGE (e:Entity {name: $name, type: $type})
+                ON CREATE SET e.attributes = $attributes
+                CREATE (obs)-[:CONTAINS]->(e)
+            """, {
+                "obs_id": obs_id,
+                "name": entity["name"],
+                "type": entity["type"],
+                "attributes": entity.get("attributes", []),
+            })
+
+        for rel in relationships:
+            rel_type = rel.get("relation", "RELATED_TO").upper().replace(" ", "_")
+            session.run(f"""
+                MATCH (a:Entity {{name: $from_name}})
+                MATCH (b:Entity {{name: $to_name}})
+                MERGE (a)-[:{rel_type}]->(b)
+            """, {
+                "from_name": rel.get("from", ""),
+                "to_name": rel.get("to", ""),
+            })
+
+    return len(entities)
 
 
 def search_similar(query_embedding, limit=5):

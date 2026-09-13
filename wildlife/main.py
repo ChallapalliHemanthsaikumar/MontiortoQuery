@@ -336,7 +336,7 @@ def run_wildlife_cam(args):
                             frame,
                             {
                                 "timestamp": time.strftime(
-                                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                                    "%Y-%m-%dT%H:%M:%S", time.localtime()
                                 ),
                                 "yolo_class": species or trigger,
                                 "yolo_confidence": "0.9",
