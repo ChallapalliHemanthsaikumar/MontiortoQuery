@@ -27,12 +27,36 @@ import uvicorn
 from config import SERVER_HOST, SERVER_PORT, API_KEY, USE_HTTPS, CERT_DIR
 from vlm import describe_frame
 from embeddings import get_embedding
+from neo4j_store import init_schema, store_event as neo4j_store_event, get_stats as neo4j_stats, close as neo4j_close, search_similar, get_driver
+
+USE_NEO4J = os.getenv("USE_NEO4J", "true").lower() == "true"
+_neo4j_ready = False
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 IMAGES_DIR = os.path.join(DATA_DIR, "images")
 os.makedirs(IMAGES_DIR, exist_ok=True)
 
 app = FastAPI(title="Wildlife Vision Server")
+
+
+@app.on_event("startup")
+async def startup():
+    global _neo4j_ready
+    if USE_NEO4J:
+        try:
+            get_driver()
+            init_schema()
+            _neo4j_ready = True
+            print("[neo4j] Connected and schema ready")
+        except Exception as e:
+            print(f"[neo4j] WARNING: Could not connect — {e}")
+            print("[neo4j] Server will still work, events saved to CSV/JSON only")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    if _neo4j_ready:
+        neo4j_close()
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -145,15 +169,49 @@ async def analyze(
         "processing_time_ms": int(elapsed * 1000),
     }
 
-    # Store locally (will forward to Neo4j in Phase 3)
+    # Store locally (CSV + JSON + image)
     image_path = save_event(event, image_bytes)
+
+    # Store in Neo4j graph database
+    obs_id = None
+    if _neo4j_ready:
+        try:
+            obs_id = neo4j_store_event(event)
+        except Exception as e:
+            print(f"  [neo4j] Store failed: {e}")
 
     print(f"[{timestamp or 'no-ts'}] {trigger_type} | "
           f"{yolo_class or 'unknown'} | {elapsed:.1f}s | "
           f"{description[:80]}...")
-    print(f"  -> saved: {image_path}")
+    storage = f"csv+neo4j({obs_id})" if obs_id else "csv-only"
+    print(f"  -> saved: {image_path} [{storage}]")
 
-    return {"status": "stored", "processing_time_ms": int(elapsed * 1000)}
+    return {
+        "status": "stored",
+        "processing_time_ms": int(elapsed * 1000),
+        "neo4j": obs_id is not None,
+    }
+
+
+@app.get("/search")
+async def search(q: str, limit: int = 5, api_key: str = Depends(verify_api_key)):
+    """Semantic search — find observations matching a natural language query."""
+    if not _neo4j_ready:
+        raise HTTPException(status_code=503, detail="Neo4j not connected")
+    embedding = get_embedding(q)
+    results = search_similar(embedding, limit=limit)
+    for r in results:
+        if r.get("timestamp"):
+            r["timestamp"] = str(r["timestamp"])
+    return {"query": q, "results": results}
+
+
+@app.get("/stats")
+async def stats(api_key: str = Depends(verify_api_key)):
+    """Graph database stats."""
+    if not _neo4j_ready:
+        return {"neo4j": False, "message": "Neo4j not connected"}
+    return {"neo4j": True, **neo4j_stats()}
 
 
 def generate_self_signed_cert():
@@ -184,11 +242,14 @@ if __name__ == "__main__":
     print(f"  HTTPS:    {USE_HTTPS}")
     print(f"  API Key:  {API_KEY[:8]}...{API_KEY[-4:]}")
     print(f"  Model:    qwen2.5vl:3b")
+    print(f"  Neo4j:    {'enabled' if USE_NEO4J else 'disabled'}")
     print("=" * 50)
     print()
     print("  Endpoints:")
     print(f"    GET  /health          — health check (no auth)")
     print(f"    POST /analyze         — send image, get description")
+    print(f"    GET  /search?q=...    — semantic search (Neo4j)")
+    print(f"    GET  /stats           — graph database stats")
     print()
     print("  Pi command:")
     proto = "https" if USE_HTTPS else "http"
