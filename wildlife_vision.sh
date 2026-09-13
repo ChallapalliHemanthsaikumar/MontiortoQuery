@@ -22,7 +22,7 @@ CMD="python -u -m wildlife.main \
   --rotate 180 \
   --experiment $EXPERIMENT \
   --capture-interval 3 \
-  --heartbeat-minutes 30 \
+  --heartbeat-minutes 5 \
   --min-area 800 \
   --min-solidity 0.2 \
   --confirm-frames 1 \

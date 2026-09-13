@@ -285,7 +285,22 @@ def run_wildlife_cam(args):
                 trigger = trigger or "heartbeat"
                 last_heartbeat = now
                 logger.log_heartbeat()
-                print(f"[{frame_num}] Heartbeat capture — brightness={brightness}")
+
+                if classifier and not yolo_detections:
+                    yolo_detections = classifier.classify_frame(frame)
+                    wildlife = classifier.get_wildlife(yolo_detections)
+                    persons = classifier.get_persons(yolo_detections)
+                    if wildlife:
+                        species = ", ".join(sorted(set(
+                            d["class_name"] for d in wildlife
+                        )))
+                        trigger = "heartbeat_animal"
+                    elif persons:
+                        species = "person"
+                        trigger = "heartbeat_person"
+
+                print(f"[{frame_num}] Heartbeat capture — brightness={brightness}"
+                      f"{' | ' + species if species else ''}")
 
             if should_capture:
                 can_save, reason = storage.can_capture()
