@@ -23,11 +23,12 @@ CMD="python -u -m wildlife.main \
   --experiment $EXPERIMENT \
   --capture-interval 3 \
   --heartbeat-minutes 30 \
+  --min-area 800 \
   --min-solidity 0.2 \
   --confirm-frames 1 \
   --use-classifier \
   --classifier-model yolov8n.onnx \
-  --classifier-confidence 0.35 \
+  --classifier-confidence 0.25 \
   --vision-server $VISION_SERVER \
   --vision-api-key $VISION_API_KEY"
 
