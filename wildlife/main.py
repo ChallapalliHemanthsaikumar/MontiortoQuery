@@ -11,6 +11,8 @@ import signal
 import sys
 import os
 import time
+import json
+import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -22,6 +24,33 @@ from wildlife.classify import WildlifeClassifier
 from edge.image_uploader import S3ImageUploader, LocalImageSaver
 
 running = True
+
+
+def send_to_vision_server(frame, metadata, server_url, api_key):
+    """Send a frame to the GPU vision server in a background thread."""
+    def _send():
+        try:
+            import requests
+            _, jpg_bytes = cv2.imencode(".jpg", frame)
+            response = requests.post(
+                f"{server_url}/analyze",
+                headers={"X-API-Key": api_key},
+                files={"frame": ("frame.jpg", jpg_bytes.tobytes(), "image/jpeg")},
+                data=metadata,
+                timeout=120,
+                verify=False,
+            )
+            if response.status_code == 200:
+                result = response.json()
+                print(f"  [vision-server] Stored. "
+                      f"Processing: {result['processing_time_ms']}ms")
+            else:
+                print(f"  [vision-server] Error {response.status_code}")
+        except Exception as e:
+            print(f"  [vision-server] Failed: {e}")
+
+    thread = threading.Thread(target=_send, daemon=True)
+    thread.start()
 
 
 def handle_signal(sig, frame):
@@ -160,6 +189,7 @@ def run_wildlife_cam(args):
     print(f"  Dark threshold:   {args.dark_threshold}")
     print(f"  Classifier:       {'YOLO ' + args.classifier_model if classifier else 'off'}")
     print(f"  Classifier-only:  {args.classifier_only}")
+    print(f"  Vision server:    {args.vision_server or 'off'}")
     print(f"  Mode:             {'live Pi Camera' if args.live else 'video file'}")
     print("=" * 50)
 
@@ -285,6 +315,26 @@ def run_wildlife_cam(args):
                         species=species,
                     )
 
+                    # Send to vision server for VLM analysis (background)
+                    if args.vision_server:
+                        send_to_vision_server(
+                            frame,
+                            {
+                                "timestamp": time.strftime(
+                                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                                ),
+                                "yolo_class": species or trigger,
+                                "yolo_confidence": "0.9",
+                                "brightness": str(brightness),
+                                "motion_pct": str(motion_pct),
+                                "frame_num": str(frame_num),
+                                "camera_id": "pi-wildlife",
+                                "trigger_type": trigger,
+                            },
+                            args.vision_server,
+                            args.vision_api_key,
+                        )
+
             if args.show:
                 storage_stats = storage.get_stats()
                 display = annotate_frame(
@@ -385,6 +435,12 @@ def parse_args():
                         help="Max captures per hour (default: 120)")
     parser.add_argument("--max-local-images", type=int, default=2000,
                         help="Auto-cleanup oldest frames above this count (default: 2000)")
+
+    # Vision server
+    parser.add_argument("--vision-server", default=None,
+                        help="GPU vision server URL (e.g. http://10.0.0.181:8000)")
+    parser.add_argument("--vision-api-key", default="wildlife-vision-secret-2026",
+                        help="API key for vision server")
 
     # Cloud upload
     parser.add_argument("--s3-bucket", default=None,
