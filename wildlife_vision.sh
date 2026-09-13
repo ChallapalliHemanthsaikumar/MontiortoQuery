@@ -21,10 +21,10 @@ CMD="python -u -m wildlife.main \
   --live \
   --rotate 180 \
   --experiment $EXPERIMENT \
-  --capture-interval 5 \
+  --capture-interval 3 \
   --heartbeat-minutes 30 \
-  --min-solidity 0.3 \
-  --confirm-frames 2 \
+  --min-solidity 0.2 \
+  --confirm-frames 1 \
   --use-classifier \
   --classifier-model yolov8n.onnx \
   --classifier-confidence 0.35 \
