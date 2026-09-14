@@ -4,7 +4,7 @@ A distributed AI system that captures, understands, and queries real-world activ
 
 Started as an ant behavior observation system, evolved into a full-stack AI monitoring pipeline.
 
-**[Demo Video](https://youtu.be/YUI7oGz3xC4)** | **[Live Showcase](docs/showcase.html)** | **[Project Deep Dive](docs/PROJECT_SHOWCASE.md)**
+**[Demo Video](https://youtu.be/YUI7oGz3xC4)** | **[Live Showcase](https://antvision.vercel.app)** | **[Project Deep Dive](docs/PROJECT_SHOWCASE.md)**
 
 [![Demo Video](https://img.youtube.com/vi/YUI7oGz3xC4/maxresdefault.jpg)](https://youtu.be/YUI7oGz3xC4)
 
