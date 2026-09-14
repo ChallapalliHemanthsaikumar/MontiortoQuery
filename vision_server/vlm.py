@@ -1,8 +1,10 @@
 """Qwen2.5-VL wrapper via Ollama."""
 
 import base64
-import ollama
-from config import VLM_MODEL
+from ollama import Client
+from config import VLM_MODEL, OLLAMA_VLM_HOST
+
+_client = Client(host=OLLAMA_VLM_HOST)
 
 SYSTEM_PROMPT = (
     "You are a wildlife and activity monitoring AI. "
@@ -22,7 +24,7 @@ def describe_frame(image_bytes, yolo_class="", yolo_confidence=0.0):
     if yolo_class:
         hint = f" YOLO pre-detection: {yolo_class} ({yolo_confidence:.0%} confidence)."
 
-    response = ollama.chat(
+    response = _client.chat(
         model=VLM_MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},

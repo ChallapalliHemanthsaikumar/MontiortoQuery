@@ -38,6 +38,13 @@ cloud/terraform/*.tfstate
 cloud/terraform/*.tfstate.backup
 cloud/terraform/*.tfvars
 
+# YOLO models (large binaries)
+*.onnx
+*.pt
+
+# Vision server data (camera images + logs)
+vision_server/data/
+
 # Logs
 *.log
 

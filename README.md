@@ -1,265 +1,185 @@
-# AntVision
+# AntVision — Multi-Device AI Activity Monitor
 
-**An Edge Computer Vision System for Observing and Measuring Ant Behavior**
+A distributed edge-to-cloud AI system that captures, understands, and queries real-world activity using computer vision, vision-language models, and a knowledge graph.
 
-AntVision is an experimental computer-vision project built around a Raspberry Pi and camera. The goal is to observe ants around a controlled food source, detect and track their movement, convert visual observations into structured behavioral data, and eventually stream the results to AWS for real-time monitoring and long-term analysis.
-
----
-
-## Project Goal
-
-> **Place a controlled food source in an observation area and use computer vision to understand how ant activity changes over time.**
-
-Instead of simply recording a video, AntVision turns video into measurable data.
-
-The system will eventually answer questions such as:
-
-- How long does it take for the first ant to discover the food?
-- How many ants arrive over time?
-- How does activity change after food is discovered?
-- How long do ants remain near the food?
-- What paths do ants follow?
-- How does movement speed change?
-- When does activity reach its peak?
+Started as an ant behavior observation system, evolved into a full-stack AI monitoring pipeline spanning 3 devices.
 
 ---
 
-## Architecture
+## System Architecture
 
 ```
-                    ┌──────────────────┐
-                    │   Pi Camera      │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │  Raspberry Pi    │
-                    │                  │
-                    │ Computer Vision  │
-                    │ Detection        │
-                    │ Tracking         │
-                    └────────┬─────────┘
-                             │
-                       Behavioral
-                          Events
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │   AWS IoT Core   │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │     Lambda       │
-                    └────────┬─────────┘
-                             │
-                    ┌────────┴─────────┐
-                    ▼                  ▼
-              ┌───────────┐      ┌───────────┐
-              │ DynamoDB  │      │     S3    │
-              │  Metrics  │      │  Images/  │
-              │           │      │   Video   │
-              └───────────┘      └───────────┘
-                    │
-                    ▼
-              ┌──────────────┐
-              │  Dashboard   │
-              │ Live Metrics │
-              └──────────────┘
+  Raspberry Pi 4              Windows RTX 3060             MacBook M1 Pro
+  (Edge Device)               (GPU Server)                 (Reasoning Server)
+
+  Pi Camera Module 3          FastAPI Server               Ollama
+        |                          |                       qwen2.5:14b
+   Motion Detection           Qwen2.5-VL 7B                    |
+   (MOG2 + Solidity)         Scene Description            Entity Extraction
+        |                          |                      Cypher Generation
+   YOLOv8-nano ONNX          Sentence Embeddings          Query Answering
+   Person/Animal Detection    (all-MiniLM-L6-v2)               |
+        |                          |                            |
+   WiFi HTTP POST -------->  /analyze endpoint                  |
+                                   |                            |
+                              Neo4j Graph DB  <-----------------+
+                              (Vector Index)
+                                   |
+                            Streamlit Dashboard
+                            (Chat UI + Images)
 ```
 
-> **Note:** The AWS portion is planned and will be implemented after the local computer-vision pipeline is working.
+---
+
+## What It Does
+
+1. **Captures** — Pi Camera grabs frames every 3 seconds, runs motion detection with solidity filtering to ignore leaves and wind
+2. **Classifies** — YOLOv8-nano (ONNX) runs on-device to identify people vs. animals vs. unclassified motion
+3. **Describes** — Frames are sent to a GPU server running Qwen2.5-VL 7B, which generates rich natural language scene descriptions
+4. **Extracts** — A 14B reasoning model extracts structured entities (person, vehicle, clothing, objects) and relationships
+5. **Stores** — Everything goes into a Neo4j knowledge graph with vector embeddings for semantic search
+6. **Queries** — Natural language query agent generates Cypher, self-corrects on errors, and explains results
+7. **Displays** — Streamlit dashboard shows chat interface with inline images and graph stats
 
 ---
 
-## Development Roadmap
+## Technical Highlights
 
-### Phase 1 — Environment Setup
+### Edge AI on Raspberry Pi
+- Background subtraction (MOG2) with solidity filtering to reject jagged leaf contours
+- Multi-frame temporal confirmation for robust detection
+- YOLOv8-nano exported to ONNX format for ARM compatibility (no PyTorch on Pi)
+- Non-blocking frame upload via background threads — detection pipeline never waits for VLM
 
-- [ ] Create GitHub repository
-- [ ] Set up Python development environment
-- [ ] Configure Raspberry Pi
-- [ ] Verify Pi Camera
-- [ ] Establish Raspberry Pi ↔ Wi-Fi connectivity
-- [ ] Set up Git workflow
+### Vision-Language Model Pipeline
+- Qwen2.5-VL 7B on RTX 3060 GPU for scene understanding (~2-5s per frame)
+- Rich descriptions: clothing colors, actions, spatial relationships, object counts
+- 384-dimensional sentence embeddings (all-MiniLM-L6-v2) for semantic search
 
-### Phase 2 — Camera Pipeline
+### Knowledge Graph (Neo4j)
+- 6 node types: Camera, Observation, Species, TimeWindow, Description, Entity
+- 7+ relationship types: CAPTURED, CLASSIFIED_AS, OCCURRED_DURING, DESCRIBED_BY, CONTAINS, NEAR, WEARING
+- Vector index on Description embeddings for cosine similarity search
+- Entity extraction creates queryable attributes (clothing, actions, positions)
 
-- [ ] Capture frames from Pi Camera
-- [ ] Save sample images
-- [ ] Record test videos
-- [ ] Determine optimal camera angle
-- [ ] Determine suitable lighting
-- [ ] Create a controlled observation area
-
-### Phase 3 — Computer Vision
-
-- [ ] Implement image preprocessing
-- [ ] Implement motion detection
-- [ ] Detect ants
-- [ ] Determine ant coordinates
-- [ ] Track individual ants
-- [ ] Calculate trajectories
-- [ ] Calculate movement speed
-- [ ] Define food zone
-- [ ] Detect food-zone entry/exit
-
-### Phase 4 — Behavioral Analytics
-
-Generate measurements such as:
-
-- First discovery time
-- Ant count
-- Arrival rate
-- Departure rate
-- Food-zone activity
-- Average speed
-- Trajectory length
-- Activity over time
-
-### Phase 5 — AWS
-
-- [ ] Define event schema
-- [ ] Set up Terraform
-- [ ] Create AWS IoT Core infrastructure
-- [ ] Configure authentication
-- [ ] Create DynamoDB table
-- [ ] Create S3 storage
-- [ ] Create Lambda processing
-- [ ] Send Raspberry Pi events to AWS
-- [ ] Store experiment data
-
-### Phase 6 — Dashboard
-
-- [ ] Live Pi status
-- [ ] Current ant count
-- [ ] Food-zone activity
-- [ ] Arrival/departure rate
-- [ ] Movement statistics
-- [ ] Historical experiment data
-- [ ] Trajectory visualization
-
-### Phase 7 — Experiments
-
-#### Experiment 001 — Food Discovery
-
-**Question:** How does ant activity change after a food source is discovered?
-
-Measurements:
-
-- Time to first discovery
-- Number of ants detected
-- Arrival rate
-- Food-zone activity
-- Average movement speed
-- Activity over time
-
-Future experiments may investigate different food sources, quantities, distances, times of day, and activity decay after food removal.
+### Agentic Query System
+- 14B reasoning model generates Cypher queries from natural language
+- Self-correction: if a query fails, the error is fed back to the model to fix
+- Combines graph traversal with vector search for hybrid retrieval
+- Streamlit chat UI with inline image display
 
 ---
 
-## Repository Structure
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Camera | Raspberry Pi 4 + Pi Camera Module 3 |
+| Motion Detection | OpenCV MOG2 + contour analysis |
+| Object Detection | YOLOv8-nano (ONNX Runtime) |
+| Vision-Language Model | Qwen2.5-VL 7B (Ollama) |
+| Reasoning Model | Qwen2.5 14B (Ollama) |
+| Text Embeddings | all-MiniLM-L6-v2 (sentence-transformers) |
+| Graph Database | Neo4j with vector index |
+| API Server | FastAPI + Uvicorn |
+| Dashboard | Streamlit |
+| Communication | HTTP REST + API key auth |
+
+---
+
+## Project Structure
 
 ```
 antvision/
-├── README.md
-├── requirements.txt
-├── .gitignore
-│
-├── edge/
-│   ├── camera/         # Camera capture and configuration
-│   ├── detection/      # Ant detection algorithms
-│   ├── tracking/       # Multi-object tracking
-│   └── main.py         # Edge pipeline entry point
-│
-├── cloud/
-│   ├── terraform/      # Infrastructure as Code
-│   ├── lambda/         # AWS Lambda functions
-│   └── schemas/        # Event schemas
-│
-├── dashboard/          # Real-time monitoring UI
-│
-├── experiments/        # Experiment configurations and results
-│
-├── data/               # Local data (not committed)
-│
-├── tests/              # Test suite
-│
+├── wildlife/                  # Pi edge pipeline
+│   ├── main.py               # Main capture loop with YOLO + vision server
+│   ├── smart_motion.py       # MOG2 + solidity + temporal confirmation
+│   ├── classify.py           # YOLOv8 ONNX classifier
+│   ├── daylight.py           # Brightness-based day/night detection
+│   ├── storage_manager.py    # Disk management + cleanup
+│   └── data_logger.py        # CSV event logging
+├── vision_server/             # GPU server
+│   ├── server.py             # FastAPI (VLM + Neo4j + search + query agent)
+│   ├── vlm.py                # Qwen2.5-VL wrapper via Ollama
+│   ├── embeddings.py         # Sentence-transformer embeddings
+│   ├── entity_extractor.py   # LLM entity/relationship extraction
+│   ├── neo4j_store.py        # Graph database operations + vector search
+│   ├── query_agent.py        # Natural language -> Cypher -> results
+│   └── config.py             # Multi-host Ollama configuration
+├── dashboard/                 # Web UI
+│   └── app.py                # Streamlit chat dashboard with images
+├── edge/                      # Camera drivers + image upload
+├── cloud/                     # AWS infrastructure (Terraform)
+├── wildlife_vision.sh         # Pi start/stop/status script
 └── docs/
-    └── architecture/   # Architecture documentation
+    ├── WILDLIFE_VISION_SYSTEM.md
+    └── ADVANCED_AI_SYSTEMS_GUIDE.md
 ```
 
 ---
 
-## Technology Stack
+## Running the System
 
-| Layer | Technologies |
-|---|---|
-| **Edge** | Raspberry Pi, Pi Camera, Python, OpenCV |
-| **Computer Vision** | Image processing, motion detection, object detection, multi-object tracking |
-| **Cloud** | AWS IoT Core, AWS Lambda, DynamoDB, S3 |
-| **Infrastructure** | Terraform, AWS CLI |
-| **Development** | Git, GitHub, Python venv, VS Code |
-
----
-
-## Example Event
-
-A detected behavioral event:
-
-```json
-{
-  "device_id": "antvision-pi01",
-  "experiment_id": "exp001",
-  "timestamp": "2026-08-29T20:15:31Z",
-  "ant_id": 17,
-  "event_type": "food_zone_enter",
-  "x": 421,
-  "y": 238,
-  "speed": 1.2,
-  "zone": "food"
-}
+### Pi (Edge)
+```bash
+./wildlife_vision.sh start     # run in background
+./wildlife_vision.sh logs      # watch detections live
+./wildlife_vision.sh stop      # stop
 ```
 
-The exact schema will evolve as the computer-vision pipeline is developed.
-
----
-
-## Experimental Philosophy
-
-AntVision is designed around **repeatable experiments**. Each experiment records:
-
-- Experiment ID
-- Date and time
-- Food type and quantity
-- Observation duration
-- Camera configuration
-- Environmental conditions
-- Computer vision version
-- Results
-
-The objective is to make observations reproducible and allow results from different experiments to be compared.
-
----
-
-## Privacy & Data
-
-The system is designed for a controlled observation environment. No people or personally identifiable information are intended to be captured. Video and image data remain limited to the experiment area.
-
----
-
-## Current Status
-
-**Early Development**
-
-```
-Development Environment → Raspberry Pi Camera → Camera Capture → Computer Vision Prototype
+### Windows GPU Server
+```bash
+cd vision_server
+python server.py
 ```
 
-AWS infrastructure will be introduced after the local computer-vision pipeline is validated.
+### Dashboard
+```bash
+streamlit run dashboard/app.py
+```
+
+### Example Queries
+Ask in the Streamlit chat:
+- "What happened at 11am today?"
+- "Show me all people detected"
+- "Yellow shirt person details"
+- "Any animals spotted?"
+- "What was near the building this morning?"
+
+---
+
+## Concepts Demonstrated
+
+| Concept | Implementation |
+|---------|---------------|
+| Edge AI Inference | YOLOv8-nano ONNX on Raspberry Pi ARM |
+| Vision-Language Models | Qwen2.5-VL 7B for scene description |
+| Distributed AI Systems | 3 devices with role-based compute split |
+| Knowledge Graphs | Neo4j with entities, relationships, vector index |
+| RAG Pipeline | Embeddings + semantic search + LLM explanation |
+| Agentic AI | LLM generates Cypher, self-corrects on failure |
+| Real-time Processing | Camera -> detection -> VLM -> graph pipeline |
+| Model Serving | Ollama as inference server across network |
+| Quantization Tradeoffs | 3B vs 7B vs 14B, VRAM-aware deployment |
+| Full-stack AI | Streamlit + FastAPI + Neo4j + edge devices |
+
+---
+
+## Evolution
+
+```
+Phase 1: Ant observation with Pi Camera + OpenCV
+Phase 2: Wildlife monitoring with smart motion detection
+Phase 3: Person detection with YOLOv8 on Pi
+Phase 4: VLM scene descriptions on GPU server
+Phase 5: Neo4j knowledge graph with vector search
+Phase 6: Entity extraction and relationship mapping
+Phase 7: Natural language query agent with self-correction
+Phase 8: Streamlit dashboard with chat UI
+```
 
 ---
 
 ## License
 
-This project is currently intended as an experimental and educational project.
+This project is intended as an experimental and educational project.
