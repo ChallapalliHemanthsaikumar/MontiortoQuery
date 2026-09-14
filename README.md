@@ -93,10 +93,25 @@ flowchart LR
 
 ## Sample Captures
 
-| Heartbeat (no activity) | Person Detected | Motion (vehicle) | Person Detected |
-|:-:|:-:|:-:|:-:|
-| ![heartbeat](vision_server/data/images/20260913T110412_heartbeat.jpg) | ![person](vision_server/data/images/20260913T163413_person.jpg) | ![motion](vision_server/data/images/20260913T092450_unclassified_motion.jpg) | ![person2](vision_server/data/images/20260913T184448_person.jpg) |
-| 11:04 AM — Scheduled capture | 4:34 PM — YOLO detected person | 9:24 AM — Motion triggered | 6:44 PM — Person near building |
+### Heartbeat — Scheduled Capture (11:04 AM)
+<img src="vision_server/data/images/20260913T110412_heartbeat.jpg" width="700">
+
+No activity detected. Background scene captured every 5 minutes as a baseline.
+
+### Person Detected (4:34 PM)
+<img src="vision_server/data/images/20260913T163413_person.jpg" width="700">
+
+YOLOv8-nano detected a person near the building. Frame sent to VLM for scene description.
+
+### Motion Triggered — Vehicle (9:24 AM)
+<img src="vision_server/data/images/20260913T092450_unclassified_motion.jpg" width="700">
+
+Motion detection triggered by vehicle movement. Solidity filter confirmed real motion.
+
+### Person Detected (6:44 PM)
+<img src="vision_server/data/images/20260913T184448_person.jpg" width="700">
+
+Person detected near the carport. Entity extraction identified: person, building, greenery.
 
 ---
 
