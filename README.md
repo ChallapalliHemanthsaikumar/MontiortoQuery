@@ -230,20 +230,53 @@ antvision/
 
 ## Running the System
 
-### Pi (Edge)
+### 1. Ollama Setup (Mac — Reasoning Server)
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull the 32B reasoning model
+ollama pull qwen2.5:32b
+
+# Start server (accessible to other devices on WiFi)
+OLLAMA_HOST=0.0.0.0 ollama serve
+```
+
+### 2. Ollama Setup (Windows — VLM Server)
+
+```bash
+# Pull the vision-language model
+ollama pull qwen2.5vl:7b
+
+# Start server
+ollama serve
+```
+
+### 3. Verify Models
+
+```bash
+ollama list              # see installed models
+ollama ps                # see running models
+```
+
+### 4. Start the GPU Server (Windows)
+
+```bash
+cd vision_server
+python server.py
+```
+
+### 5. Start the Pi (Edge)
+
 ```bash
 ./wildlife_vision.sh start     # run in background
 ./wildlife_vision.sh logs      # watch detections live
 ./wildlife_vision.sh stop      # stop
 ```
 
-### Windows GPU Server
-```bash
-cd vision_server
-python server.py
-```
+### 6. Start the Dashboard
 
-### Dashboard
 ```bash
 streamlit run dashboard/app.py
 ```
