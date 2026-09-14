@@ -13,39 +13,38 @@ Started as an ant behavior observation system, evolved into a full-stack AI moni
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1a1a2e', 'primaryTextColor': '#fff', 'primaryBorderColor': '#3498db', 'lineColor': '#e74c3c', 'secondaryColor': '#16213e', 'tertiaryColor': '#0f3460', 'fontSize': '16px', 'nodeTextSize': '16px'}}}%%
 
-flowchart TB
-    subgraph PI["RASPBERRY PI 4 — EDGE DEVICE — $75"]
-        direction LR
-        CAM["Pi Camera Module 3<br/>640x480 @ 3s interval"]
-        MOT["Motion Detection<br/>MOG2 + Solidity Filter<br/>+ Temporal Confirmation"]
-        YOLO["YOLOv8-nano ONNX<br/>Person | Animal | Vehicle<br/>12MB model on ARM CPU"]
+flowchart LR
+    subgraph PI["RASPBERRY PI 4<br/>EDGE DEVICE"]
+        direction TB
+        CAM["Pi Camera Module 3<br/>640x480 @ 3s"]
+        MOT["Motion Detection<br/>MOG2 + Solidity"]
+        YOLO["YOLOv8-nano ONNX<br/>12MB on ARM"]
         CAM --> MOT --> YOLO
     end
 
-    subgraph WIN["WINDOWS RTX 3060 — GPU SERVER — 6GB VRAM"]
-        direction LR
-        API["FastAPI Server<br/>/analyze  /search  /ask"]
-        VLM["Qwen2.5-VL 7B<br/>Vision-Language Model<br/>Scene Description 2-5s"]
-        EMB["Sentence Embeddings<br/>all-MiniLM-L6-v2<br/>384 dimensions"]
-        NEO[("Neo4j Graph DB<br/>421 nodes<br/>2242 relationships<br/>Vector Index")]
-        DASH["Streamlit Dashboard<br/>Chat UI + Inline Images"]
-        API --> VLM --> EMB --> NEO
-        NEO --> DASH
+    subgraph WIN["WINDOWS RTX 3060<br/>GPU SERVER"]
+        direction TB
+        API["FastAPI<br/>/analyze /search /ask"]
+        VLM["Qwen2.5-VL 7B<br/>Scene Description"]
+        EMB["Embeddings<br/>384-dim vectors"]
+        NEO[("Neo4j<br/>421 nodes<br/>2242 rels")]
+        DASH["Streamlit<br/>Chat + Images"]
+        API --> VLM --> EMB --> NEO --> DASH
     end
 
-    subgraph MAC["MACBOOK M1 PRO — REASONING SERVER — 32GB RAM"]
-        direction LR
-        LLM["Qwen2.5 32B<br/>Large Reasoning Model<br/>20GB via Ollama"]
-        ENT["Entity Extraction<br/>person NEAR shed<br/>person WEARING yellow shirt<br/>person HOLDING object"]
-        CYP["Cypher Query Generation<br/>Natural Language to Neo4j<br/>+ Self-Correction on Error"]
+    subgraph MAC["MACBOOK M1 PRO<br/>REASONING SERVER"]
+        direction TB
+        LLM["Qwen2.5 32B<br/>Reasoning Model"]
+        ENT["Entity Extraction<br/>person NEAR shed"]
+        CYP["Cypher Generation<br/>NL to Query"]
         LLM --> ENT
         LLM --> CYP
     end
 
-    YOLO ==>|"WiFi HTTP POST<br/>frame + YOLO class + confidence"| API
-    VLM -.->|"Ollama API via WiFi<br/>description text"| LLM
-    ENT -.->|"structured entities<br/>+ relationships"| NEO
-    CYP -.->|"generated Cypher<br/>queries"| NEO
+    YOLO ==>|"WiFi HTTP<br/>frame + metadata"| API
+    VLM -.->|"Ollama API"| LLM
+    ENT -.->|"entities"| NEO
+    CYP -.->|"Cypher"| NEO
 
     style PI fill:#0d2818,stroke:#2ecc71,stroke-width:3px,color:#2ecc71
     style WIN fill:#0d1b2a,stroke:#3498db,stroke-width:3px,color:#3498db
