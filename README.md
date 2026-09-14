@@ -11,42 +11,41 @@ Started as an ant behavior observation system, evolved into a full-stack AI moni
 ## System Architecture
 
 ```mermaid
-%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1a1a2e', 'primaryTextColor': '#fff', 'primaryBorderColor': '#3498db', 'lineColor': '#e74c3c', 'secondaryColor': '#16213e', 'tertiaryColor': '#0f3460', 'fontSize': '14px'}}}%%
+%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1a1a2e', 'primaryTextColor': '#fff', 'primaryBorderColor': '#3498db', 'lineColor': '#e74c3c', 'secondaryColor': '#16213e', 'tertiaryColor': '#0f3460', 'fontSize': '16px', 'nodeTextSize': '16px'}}}%%
 
-flowchart LR
-    subgraph PI["RASPBERRY PI 4 — EDGE DEVICE"]
-        direction TB
-        CAM["Pi Camera Module 3\n640x480 @ 3s interval"]
-        MOT["Motion Detection\nMOG2 + Solidity Filter"]
-        YOLO["YOLOv8-nano ONNX\nPerson | Animal | Vehicle"]
+flowchart TB
+    subgraph PI["RASPBERRY PI 4 — EDGE DEVICE — $75"]
+        direction LR
+        CAM["Pi Camera Module 3<br/>640x480 @ 3s interval"]
+        MOT["Motion Detection<br/>MOG2 + Solidity Filter<br/>+ Temporal Confirmation"]
+        YOLO["YOLOv8-nano ONNX<br/>Person | Animal | Vehicle<br/>12MB model on ARM CPU"]
         CAM --> MOT --> YOLO
     end
 
-    subgraph WIN["WINDOWS RTX 3060 — GPU SERVER"]
-        direction TB
-        API["FastAPI Server\n/analyze  /search  /ask"]
-        VLM["Qwen2.5-VL 7B\nVision-Language Model"]
-        EMB["Sentence Embeddings\nall-MiniLM-L6-v2  384-dim"]
-        NEO[("Neo4j Graph DB\n421 nodes  2242 rels")]
-        DASH["Streamlit Dashboard\nChat UI + Images"]
+    subgraph WIN["WINDOWS RTX 3060 — GPU SERVER — 6GB VRAM"]
+        direction LR
+        API["FastAPI Server<br/>/analyze  /search  /ask"]
+        VLM["Qwen2.5-VL 7B<br/>Vision-Language Model<br/>Scene Description 2-5s"]
+        EMB["Sentence Embeddings<br/>all-MiniLM-L6-v2<br/>384 dimensions"]
+        NEO[("Neo4j Graph DB<br/>421 nodes<br/>2242 relationships<br/>Vector Index")]
+        DASH["Streamlit Dashboard<br/>Chat UI + Inline Images"]
         API --> VLM --> EMB --> NEO
         NEO --> DASH
     end
 
-    subgraph MAC["MACBOOK M1 PRO — REASONING SERVER"]
-        direction TB
-        LLM["Qwen2.5 32B\nLarge Reasoning Model"]
-        ENT["Entity Extraction\nperson — NEAR — shed"]
-        CYP["Cypher Generation\nNatural Language to Query"]
-        FIX["Self-Correction\nError — Fix — Retry 2x"]
+    subgraph MAC["MACBOOK M1 PRO — REASONING SERVER — 32GB RAM"]
+        direction LR
+        LLM["Qwen2.5 32B<br/>Large Reasoning Model<br/>20GB via Ollama"]
+        ENT["Entity Extraction<br/>person NEAR shed<br/>person WEARING yellow shirt<br/>person HOLDING object"]
+        CYP["Cypher Query Generation<br/>Natural Language to Neo4j<br/>+ Self-Correction on Error"]
         LLM --> ENT
-        LLM --> CYP --> FIX
+        LLM --> CYP
     end
 
-    YOLO ==>|"WiFi HTTP POST\nframe + metadata"| API
-    VLM -.->|"Ollama API\nWiFi"| LLM
-    LLM -.->|"entities +\nrelationships"| NEO
-    FIX -.->|"Cypher\nqueries"| NEO
+    YOLO ==>|"WiFi HTTP POST<br/>frame + YOLO class + confidence"| API
+    VLM -.->|"Ollama API via WiFi<br/>description text"| LLM
+    ENT -.->|"structured entities<br/>+ relationships"| NEO
+    CYP -.->|"generated Cypher<br/>queries"| NEO
 
     style PI fill:#0d2818,stroke:#2ecc71,stroke-width:3px,color:#2ecc71
     style WIN fill:#0d1b2a,stroke:#3498db,stroke-width:3px,color:#3498db
@@ -65,28 +64,6 @@ flowchart LR
     style LLM fill:#2a0a3a,stroke:#9b59b6,color:#fff
     style ENT fill:#2a0a3a,stroke:#9b59b6,color:#fff
     style CYP fill:#2a0a3a,stroke:#9b59b6,color:#fff
-    style FIX fill:#2a0a3a,stroke:#9b59b6,color:#fff
-```
-
-```
-  Raspberry Pi 4              Windows RTX 3060             MacBook M1 Pro
-  (Edge Device)               (GPU Server)                 (Reasoning Server)
-
-  Pi Camera Module 3          FastAPI Server               Ollama
-        |                          |                       qwen2.5:32b
-   Motion Detection           Qwen2.5-VL 7B                    |
-   (MOG2 + Solidity)         Scene Description            Entity Extraction
-        |                          |                      Cypher Generation
-   YOLOv8-nano ONNX          Sentence Embeddings          Query Answering
-   Person/Animal Detection    (all-MiniLM-L6-v2)               |
-        |                          |                            |
-   WiFi HTTP POST -------->  /analyze endpoint                  |
-                                   |                            |
-                              Neo4j Graph DB  <-----------------+
-                              (Vector Index)
-                                   |
-                            Streamlit Dashboard
-                            (Chat UI + Images)
 ```
 
 ---
@@ -112,6 +89,68 @@ Motion detection triggered by vehicle movement. Solidity filter confirmed real m
 <img src="vision_server/data/images/20260913T184448_person.jpg" width="700">
 
 Person detected near the carport. Entity extraction identified: person, building, greenery.
+
+---
+
+## AI Pipeline Output — From Pixels to Knowledge
+
+### Step 1: VLM Image Description (Qwen2.5-VL 7B)
+
+The camera frame is sent to the Vision-Language Model, which generates a rich natural language description:
+
+```
+Input:  Camera frame (640x480 JPEG) + YOLO class: "person" (94%)
+
+Output: "A person in a yellow and gray t-shirt standing outdoors in a
+         residential area, holding a small object in their right hand.
+         The background shows a building with a sloped roof, some
+         greenery, and a gravel path. The lighting suggests an overcast
+         day with diffused natural light."
+```
+
+### Step 2: Entity Extraction (Qwen2.5 32B)
+
+The 32B reasoning model reads the VLM description and extracts structured entities and relationships:
+
+```
+Input:  VLM description text
+
+Output:
+  Entities:
+    [person]   "person"     — attributes: yellow shirt, gray t-shirt, dark shorts
+    [location] "building"   — attributes: sloped roof, residential
+    [object]   "small object" — attributes: held in right hand
+    [location] "gravel path"  — attributes: near building
+
+  Relationships:
+    person  → NEAR     → building
+    person  → HOLDING  → small object
+    person  → WEARING  → yellow shirt
+    building → HAS     → sloped roof
+```
+
+### Step 3: Query Agent (Natural Language to Cypher)
+
+Ask a question in plain English, the 32B model generates a Neo4j Cypher query:
+
+```
+User:   "Who was near the building at 11am?"
+
+Generated Cypher:
+  MATCH (obs:Observation)-[:CONTAINS]->(e:Entity)
+  WHERE e.name = 'person'
+  AND obs.timestamp >= datetime('2026-09-13T11:00:00')
+  AND obs.timestamp < datetime('2026-09-13T12:00:00')
+  MATCH (obs)-[:CONTAINS]->(loc:Entity)
+  WHERE loc.name = 'building'
+  RETURN obs.timestamp, e.name, e.attributes, loc.name
+
+Answer: "At 11:05 AM on September 13, a person wearing a yellow and gray
+         t-shirt and dark shorts was detected standing near the building,
+         holding a small object in their right hand."
+```
+
+If the generated Cypher has a syntax error, the error is fed back to the model and it self-corrects (up to 2 retries).
 
 ---
 
