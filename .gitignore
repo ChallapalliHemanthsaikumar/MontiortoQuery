@@ -42,8 +42,8 @@ cloud/terraform/*.tfvars
 *.onnx
 *.pt
 
-# Vision server data (camera images + logs)
-vision_server/data/
+# Vision server logs (large JSON)
+vision_server/data/events.json
 
 # Logs
 *.log
