@@ -91,6 +91,15 @@ flowchart LR
 
 ---
 
+## Sample Captures
+
+| Heartbeat (no activity) | Person Detected | Motion (vehicle) | Person Detected |
+|:-:|:-:|:-:|:-:|
+| ![heartbeat](vision_server/data/images/20260913T110412_heartbeat.jpg) | ![person](vision_server/data/images/20260913T163413_person.jpg) | ![motion](vision_server/data/images/20260913T092450_unclassified_motion.jpg) | ![person2](vision_server/data/images/20260913T184448_person.jpg) |
+| 11:04 AM — Scheduled capture | 4:34 PM — YOLO detected person | 9:24 AM — Motion triggered | 6:44 PM — Person near building |
+
+---
+
 ## What It Does
 
 1. **Captures** — Pi Camera grabs frames every 3 seconds, runs motion detection with solidity filtering to ignore leaves and wind
