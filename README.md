@@ -1,19 +1,40 @@
 # AntVision — Multi-Device AI Activity Monitor
 
-A distributed edge-to-cloud AI system that captures, understands, and queries real-world activity using computer vision, vision-language models, and a knowledge graph.
+A distributed AI system that captures, understands, and queries real-world activity using computer vision, vision-language models, and a knowledge graph — running locally across 3 devices.
 
-Started as an ant behavior observation system, evolved into a full-stack AI monitoring pipeline spanning 3 devices.
+Started as an ant behavior observation system, evolved into a full-stack AI monitoring pipeline.
+
+**[Live Showcase](docs/showcase.html)** | **[Demo Video](docs/chat_database.mp4)** | **[Project Deep Dive](docs/PROJECT_SHOWCASE.md)**
 
 ---
 
 ## System Architecture
+
+```mermaid
+flowchart LR
+    subgraph EDGE["Raspberry Pi 4"]
+        CAM[Pi Camera] --> MOT[Motion Detection] --> YOLO[YOLOv8-nano ONNX]
+    end
+    subgraph GPU["Windows RTX 3060"]
+        API[FastAPI] --> VLM[Qwen2.5-VL 7B] --> EMB[Embeddings] --> NEO[Neo4j]
+        NEO --> DASH[Streamlit Chat]
+    end
+    subgraph MAC["MacBook M1 Pro"]
+        LLM[Qwen2.5 32B] --> ENT[Entity Extraction]
+        LLM --> CYP[Cypher Generation]
+    end
+    YOLO -->|WiFi HTTP| API
+    VLM -->|Ollama API| LLM
+    ENT --> NEO
+    CYP --> NEO
+```
 
 ```
   Raspberry Pi 4              Windows RTX 3060             MacBook M1 Pro
   (Edge Device)               (GPU Server)                 (Reasoning Server)
 
   Pi Camera Module 3          FastAPI Server               Ollama
-        |                          |                       qwen2.5:14b
+        |                          |                       qwen2.5:32b
    Motion Detection           Qwen2.5-VL 7B                    |
    (MOG2 + Solidity)         Scene Description            Entity Extraction
         |                          |                      Cypher Generation
@@ -36,7 +57,7 @@ Started as an ant behavior observation system, evolved into a full-stack AI moni
 1. **Captures** — Pi Camera grabs frames every 3 seconds, runs motion detection with solidity filtering to ignore leaves and wind
 2. **Classifies** — YOLOv8-nano (ONNX) runs on-device to identify people vs. animals vs. unclassified motion
 3. **Describes** — Frames are sent to a GPU server running Qwen2.5-VL 7B, which generates rich natural language scene descriptions
-4. **Extracts** — A 14B reasoning model extracts structured entities (person, vehicle, clothing, objects) and relationships
+4. **Extracts** — A 32B reasoning model extracts structured entities (person, vehicle, clothing, objects) and relationships
 5. **Stores** — Everything goes into a Neo4j knowledge graph with vector embeddings for semantic search
 6. **Queries** — Natural language query agent generates Cypher, self-corrects on errors, and explains results
 7. **Displays** — Streamlit dashboard shows chat interface with inline images and graph stats
@@ -57,13 +78,16 @@ Started as an ant behavior observation system, evolved into a full-stack AI moni
 - 384-dimensional sentence embeddings (all-MiniLM-L6-v2) for semantic search
 
 ### Knowledge Graph (Neo4j)
+
+![Neo4j Graph Visualization](docs/visualisation.svg)
+
 - 6 node types: Camera, Observation, Species, TimeWindow, Description, Entity
 - 7+ relationship types: CAPTURED, CLASSIFIED_AS, OCCURRED_DURING, DESCRIBED_BY, CONTAINS, NEAR, WEARING
 - Vector index on Description embeddings for cosine similarity search
 - Entity extraction creates queryable attributes (clothing, actions, positions)
 
 ### Agentic Query System
-- 14B reasoning model generates Cypher queries from natural language
+- 32B reasoning model generates Cypher queries from natural language
 - Self-correction: if a query fails, the error is fed back to the model to fix
 - Combines graph traversal with vector search for hybrid retrieval
 - Streamlit chat UI with inline image display
@@ -78,7 +102,7 @@ Started as an ant behavior observation system, evolved into a full-stack AI moni
 | Motion Detection | OpenCV MOG2 + contour analysis |
 | Object Detection | YOLOv8-nano (ONNX Runtime) |
 | Vision-Language Model | Qwen2.5-VL 7B (Ollama) |
-| Reasoning Model | Qwen2.5 14B (Ollama) |
+| Reasoning Model | Qwen2.5 32B (Ollama) |
 | Text Embeddings | all-MiniLM-L6-v2 (sentence-transformers) |
 | Graph Database | Neo4j with vector index |
 | API Server | FastAPI + Uvicorn |
@@ -160,7 +184,7 @@ Ask in the Streamlit chat:
 | Agentic AI | LLM generates Cypher, self-corrects on failure |
 | Real-time Processing | Camera -> detection -> VLM -> graph pipeline |
 | Model Serving | Ollama as inference server across network |
-| Quantization Tradeoffs | 3B vs 7B vs 14B, VRAM-aware deployment |
+| Quantization Tradeoffs | 3B vs 7B vs 32B, VRAM-aware deployment |
 | Full-stack AI | Streamlit + FastAPI + Neo4j + edge devices |
 
 ---
