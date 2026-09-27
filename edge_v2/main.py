@@ -418,6 +418,13 @@ def run_pipeline(args):
             # --- Motion detection ---
             motion_triggered, motion_pct, boxes = motion_detector.detect(frame)
 
+            if frame_num % 100 == 0:
+                warmup = motion_detector.warmup_needed()
+                audio_str = audio_results[0][0] if audio_results else "none"
+                print(f"  [{frame_num}] motion={motion_pct}% triggered={motion_triggered} "
+                      f"warmup={warmup} audio={audio_str} "
+                      f"yolo_sticky={len(sticky_yolo_detections)}")
+
             # --- YOLO ---
             # Three cases when YOLO runs:
             #   1. Motion triggered (normal detection flow)
