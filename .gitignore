@@ -12,7 +12,7 @@ certs/
 venv/
 .venv/
 env/
-
+vision_server
 # IDE
 .vscode/
 .idea/
@@ -38,9 +38,12 @@ cloud/terraform/*.tfstate
 cloud/terraform/*.tfstate.backup
 cloud/terraform/*.tfvars
 
-# YOLO models (large binaries)
+# YOLO models (large binaries) — except models/ directory
 *.onnx
 *.pt
+!models/*.onnx
+!models/*.pt
+!models/*.tflite
 
 # Vision server logs (large JSON)
 vision_server/data/events.json
@@ -52,3 +55,4 @@ vision_server/data/events.json
 experiments/*/output/
 experiments/*/video/
 experiments/*/frames/
+docs/*
