@@ -277,6 +277,7 @@ def run_pipeline(args):
     motion_detector = WildlifeMotionDetector(
         min_contour_area=args.min_area,
         min_motion_pct=args.min_motion_pct,
+        max_motion_pct=args.max_motion_pct,
         cooldown_seconds=args.cooldown,
         fps=1.0 / max(args.capture_interval, 0.033),
         min_solidity=args.min_solidity,
@@ -681,6 +682,8 @@ def parse_args():
     # Motion detection
     parser.add_argument("--min-area", type=int, default=3000)
     parser.add_argument("--min-motion-pct", type=float, default=0.5)
+    parser.add_argument("--max-motion-pct", type=float, default=90.0,
+                        help="Reject motion above this %% (default: 90)")
     parser.add_argument("--cooldown", type=float, default=10.0)
     parser.add_argument("--min-solidity", type=float, default=0.3)
     parser.add_argument("--confirm-frames", type=int, default=2)
