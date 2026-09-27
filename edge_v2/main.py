@@ -304,10 +304,13 @@ def run_pipeline(args):
     if not args.no_audio and audio_classifier:
         try:
             from edge_v2.audio_capture import AudioCapture
+            mic_device = args.mic
+            if mic_device is not None and mic_device.isdigit():
+                mic_device = int(mic_device)
             audio_capture = AudioCapture(
                 ring_buffer=audio_buffer,
                 sample_rate=args.sample_rate,
-                device=args.mic,
+                device=mic_device,
                 highpass_hz=200,
             )
             audio_capture.start()
